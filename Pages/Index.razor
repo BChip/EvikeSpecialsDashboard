@@ -1,0 +1,80 @@
+﻿@page "/"
+@using System.Net.Http
+@inject HttpClient Http
+
+<Jumbotron Background="Background.Primary" Margin="Margin.Is4.FromTop">
+    <JumbotronTitle Size="JumbotronTitleSize.Is4">Evike Specials Timeline</JumbotronTitle>
+    <JumbotronSubtitle>
+        Ever wonder if a product you wanted off of Evike ever went on sale and for how much?
+    </JumbotronSubtitle>
+    <Divider></Divider>
+    <Paragraph>  
+        Search below and find out past deals on Evike!
+    </Paragraph>
+</Jumbotron>
+
+<Form>
+    <Row>
+        <Column ColumnSize="ColumnSize.Is10">
+            <Field>
+                <TextEdit Placeholder="Cyma Platinum" @bind-Text="Query" />
+            </Field>
+        </Column>
+        <Column ColumnSize="ColumnSize.Is2">
+            <Button Type="ButtonType.Submit" PreventDefaultOnSubmit="true" Clicked="@OnButtonClicked" Color="Color.Primary" Loading="@Searching" Disabled="@(Searching || string.IsNullOrEmpty(Query))">Search</Button>
+        </Column>
+    </Row>
+</Form>
+
+<DataGrid TItem="Special" Data="@Specials" ShowPager="true" PageSize="10" Hoverable="true" Filterable="@Specials.Any()">
+    <DataGridCommandColumn TItem="Special" />
+    <DataGridColumn TItem="Special" Field="@nameof(Special.Date)" Caption="Date" Sortable="true">
+        <DisplayTemplate>
+            @($"{( context as Special)?.Date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture.DateTimeFormat)}")
+        </DisplayTemplate>
+    </DataGridColumn>
+    <DataGridColumn TItem="Special" Field="@nameof(Special.Title)" Caption="Title" Sortable="true" />
+    <DataGridColumn TItem="Special" Field="@nameof(Special.Price)" Caption="Price" Sortable="true">
+        <DisplayTemplate>
+            @($"${( context as Special)?.Price}")
+        </DisplayTemplate>
+    </DataGridColumn>
+</DataGrid>
+
+<Snackbar @ref="Toast">
+    <SnackbarBody>
+        @(ToastMessage)
+    </SnackbarBody>
+</Snackbar>
+
+    @code{
+        private Special[] Specials = new Special[] { };
+        private string Query { get; set; }
+        private bool Searching = false;
+        private Snackbar Toast;
+        private string ToastMessage = "";
+
+        async Task OnButtonClicked()
+        {
+            Searching = true;
+            var httpResponse = await Http.PostAsJsonAsync("EvikeSpecialsHttp", new { query = Query });
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                ToastMessage = "Error fetching information. Please try again later.";
+                Toast.Color = SnackbarColor.Danger;
+                Toast.Show();
+            }
+            else
+            {
+                Specials = await httpResponse.Content.ReadFromJsonAsync<Special[]>();
+            }
+            if (!Specials.Any() && httpResponse.IsSuccessStatusCode)
+            {
+                ToastMessage = "No results found.";
+                Toast.Color = SnackbarColor.Warning;
+                Toast.Show();
+            }
+
+            Searching = false;
+        }
+    }
